@@ -1,9 +1,12 @@
 package com.pm.patientservice.service;
 
+import billing.BillingResponse;
 import com.pm.patientservice.dto.PatientRequestDto;
 import com.pm.patientservice.dto.PatientResponseDto;
 import com.pm.patientservice.exeption.EmailAlreadyExistsException;
 import com.pm.patientservice.exeption.PatientNotFoundException;
+import com.pm.patientservice.grpc.BillingServiceGrpcClient;
+import com.pm.patientservice.kafka.KafkaProducer;
 import com.pm.patientservice.mapper.PatientMapper;
 import com.pm.patientservice.model.Patient;
 import com.pm.patientservice.repository.PatientRepository;
@@ -16,9 +19,15 @@ import java.util.UUID;
 @Service
 public class PatientService {
     private final PatientRepository patientRepository;
+    private final BillingServiceGrpcClient billingServiceGrpcClient;
+    private  final KafkaProducer kafkaProducer;
 
-    public PatientService(PatientRepository patientRepository) {
+    public PatientService(PatientRepository patientRepository,
+                          BillingServiceGrpcClient billingServiceGrpcClient,
+                          KafkaProducer kafkaProducer) {
         this.patientRepository = patientRepository;
+        this.billingServiceGrpcClient = billingServiceGrpcClient;
+        this.kafkaProducer = kafkaProducer;
     }
 
     public List<PatientResponseDto> getPatients() {
@@ -31,11 +40,23 @@ public class PatientService {
             throw new EmailAlreadyExistsException("A patient with this email already exists");
         }
         Patient patient = patientRepository.save(PatientMapper.toModel(patientRequestDto));
+
+        this.billingServiceGrpcClient.createBillingAccounts(
+                patient.getId().toString(),
+                patient.getEmail(),
+                patient.getName());
+
+        this.kafkaProducer.SendEvent(patient);
+
         return PatientMapper.toDto(patient);
     }
 
-    public PatientResponseDto updatePatient(UUID id, PatientRequestDto patientRequestDto) {
-        Patient patient = patientRepository.findById(id).orElseThrow(()-> new PatientNotFoundException("Patient not found with id: " + id));
+    public PatientResponseDto updatePatient(
+            UUID id,
+            PatientRequestDto patientRequestDto) {
+        Patient patient = patientRepository
+                .findById(id)
+                .orElseThrow(()-> new PatientNotFoundException("Patient not found with id: " + id));
         if (patientRepository.existsByEmailAndIdNot(patientRequestDto.getEmail(), id)) {
             throw new EmailAlreadyExistsException("A patient with this email already exists");
         }
