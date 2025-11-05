@@ -3,9 +3,9 @@ PUT http://localhost:4000/patients/123e4567-e89b-12d3-a456-426614174000
 Content-Type: application/json
 
 {
-  "name": "Mouhamed Lamotte",
+  "name": "Mouhamed Baba Lamotte",
   "address": "Mariste",
-  "email": "mouhamedlamotte.devnnn@gmail.com",
+  "email": "mouhamedlamotte.dev@gmail.com",
   "dateOfBirth": "2004-09-09"
 }
 ###
